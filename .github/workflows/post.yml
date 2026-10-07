@@ -1,0 +1,48 @@
+name: 스레드 자동 발행
+
+on:
+  schedule:
+    # 매일 한국 시간 오후 8시 (UTC 11시). 시간을 바꾸려면 README 의 '발행 시간 바꾸기'를 보세요.
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "연습 실행 (true = 실제로 올리지 않고 어떤 글이 올라갈지만 보여줘요)"
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: threads-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+      THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 다음 글 발행
+        run: python3 scripts/threads_tool.py post
+
+      - name: 발행한 글을 posted 폴더로 정리해서 저장
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "저장할 변경이 없어요."
+          else
+            git commit -m "발행 완료: 올린 글을 posted 폴더로 옮김"
+            for i in 1 2 3; do
+              git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break
+              sleep 5
+            done
+          fi

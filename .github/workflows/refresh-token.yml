@@ -1,0 +1,28 @@
+name: 토큰 갱신
+
+on:
+  schedule:
+    # 매달 1일 한국 시간 낮 12시. 토큰은 60일마다 만료되니 달마다 갱신해요.
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+      THREADS_APP_SECRET: ${{ secrets.THREADS_APP_SECRET }}
+      NEW_TOKEN_FILE: ${{ runner.temp }}/new_token
+    steps:
+      - uses: actions/checkout@v4
+      - name: 토큰 갱신하고 시크릿에 다시 저장
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::GH_PAT 시크릿이 없어서 자동 갱신을 건너뛰어요. README 의 '토큰 자동 갱신'을 먼저 설정해주세요."
+            exit 0
+          fi
+          python3 scripts/threads_tool.py refresh
+          gh secret set THREADS_ACCESS_TOKEN --repo "$GITHUB_REPOSITORY" < "$NEW_TOKEN_FILE"
+          rm -f "$NEW_TOKEN_FILE"
+          echo "새 토큰을 시크릿에 저장했어요."
