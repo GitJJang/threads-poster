@@ -13,7 +13,6 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_PAT }}
       THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
       THREADS_APP_SECRET: ${{ secrets.THREADS_APP_SECRET }}
-      NEW_TOKEN_FILE: ${{ runner.temp }}/new_token
     steps:
       - uses: actions/checkout@v4
       - name: 토큰 갱신하고 시크릿에 다시 저장
@@ -22,6 +21,7 @@ jobs:
             echo "::warning::GH_PAT 시크릿이 없어서 자동 갱신을 건너뛰어요. README 의 '토큰 자동 갱신'을 먼저 설정해주세요."
             exit 0
           fi
+          export NEW_TOKEN_FILE="$RUNNER_TEMP/new_token"
           python3 scripts/threads_tool.py refresh
           gh secret set THREADS_ACCESS_TOKEN --repo "$GITHUB_REPOSITORY" < "$NEW_TOKEN_FILE"
           rm -f "$NEW_TOKEN_FILE"
